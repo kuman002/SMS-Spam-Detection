@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Spam Detector</title>
+    <style>
+        :root {
+    --primary-color: #4f46e5;
+    --primary-hover: #4338ca;
+    --bg-color: #f3f4f6;
+    --card-bg: #ffffff;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    line-height: 1.5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    background-color: var(--card-bg);
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    width: 90%;
+    max-width: 600px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+header p {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+textarea {
+    width: 100%;
+    height: 150px;
+    padding: 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    ring: 2px solid var(--primary-color);
+}
+
+.actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: var(--primary-hover);
+}
+
+button.secondary {
+    background-color: transparent;
+    border: 1px solid #d1d5db;
+    color: var(--text-secondary);
+}
+
+button.secondary:hover {
+    background-color: #f9fafb;
+    color: var(--text-primary);
+}
+
+.result-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e5e7eb;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.hidden {
+    display: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.result-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    font-weight: 700;
+    font-size: 1.25rem;
+}
+
+.result-spam {
+    background-color: #fef2f2;
+    color: var(--danger-color);
+    border: 1px solid #fecaca;
+}
+
+.result-ham {
+    background-color: #ecfdf5;
+    color: var(--success-color);
+    border: 1px solid #a7f3d0;
+}
+</style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SMS Spam Detector</h1>
+            <p>Paste your message below to check if it's Spam or Ham.</p>
+        </header>
+
+        <main>
+            <div class="input-section">
+                <textarea id="messageInput" placeholder="Enter SMS message here..."></textarea>
+                <div class="actions">
+                    <button id="analyzeBtn">Analyze Message</button>
+                    <button id="clearBtn" class="secondary">Clear</button>
+                </div>
+            </div>
+
+            <div id="resultSection" class="result-section hidden">
+                <h2>Result</h2>
+                <div id="resultCard" class="result-card">
+                    <span id="resultIcon"></span>
+                    <span id="resultText"></span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+    const messageInput = document.getElementById('messageInput');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const resultSection = document.getElementById('resultSection');
+    const resultCard = document.getElementById('resultCard');
+    const resultText = document.getElementById('resultText');
+    const resultIcon = document.getElementById('resultIcon');
+
+    analyzeBtn.addEventListener('click', async () => {
+        const message = messageInput.value.trim();
+        if (!message) {
+            alert('Please enter a message.');
+            return;
+        }
+
+        // Loading state
+        analyzeBtn.textContent = 'Analyzing...';
+        analyzeBtn.disabled = true;
+
+        try {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                alert('Error: ' + data.error);
+                return;
+            }
+
+            displayResult(data.prediction);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        } finally {
+            analyzeBtn.textContent = 'Analyze Message';
+            analyzeBtn.disabled = false;
+        }
+    });
+
+    clearBtn.addEventListener('click', () => {
+        messageInput.value = '';
+        resultSection.classList.add('hidden');
+    });
+
+    function displayResult(prediction) {
+        resultSection.classList.remove('hidden');
+        resultCard.className = 'result-card'; // Reset classes
+
+        if (prediction.toLowerCase() === 'spam') {
+            resultCard.classList.add('result-spam');
+            resultText.textContent = 'SPAM DETECTED';
+            resultIcon.textContent = '⚠️';
+        } else {
+            resultCard.classList.add('result-ham');
+            resultText.textContent = 'NOT SPAM (HAM)';
+            resultIcon.textContent = '✅';
+        }
+    }
+});
+
+    </script>
+</body>
+</html>
